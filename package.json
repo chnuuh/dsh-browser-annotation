@@ -1,0 +1,52 @@
+{
+  "name": "dsh-browser-annotation",
+  "version": "0.1.0-alpha.1",
+  "description": "Quick and batch webpage annotations for the DSH Desktop chat composer.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "annotation",
+    "browser"
+  ],
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale",
+    "icon.svg",
+    "README.md",
+    "LICENSE",
+    "NOTICE",
+    "docs",
+    "screenshots.json"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test test/*.test.js",
+    "check": "node scripts/build.mjs --check && node --check client.js && node --test test/*.test.js",
+    "market:index": "node scripts/market-index.mjs"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  }
+}
