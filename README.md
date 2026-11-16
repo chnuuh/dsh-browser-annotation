@@ -6,6 +6,18 @@
 
 这是独立的 DSH client 插件，不覆盖 DS Bot 文件，不包含 Finder 菜单或 CLI 续跑补丁。可以独立安装、停用和卸载。DS Bot 更新不会直接覆盖本插件；DSH 的接口或浏览器实现变化时仍需验证兼容性。
 
+## 界面预览
+
+以下是 [测试页面](demo/index.html) 在独立 Chromium 中运行标注组件的局部截图，仅展示菜单和备注面板，不包含聊天、账号或地址栏。这些截图不代表已完成 DSH Desktop 的完整安装验收。
+
+**右键选择 Quick annotation 或 Annotation：**
+
+![网页元素上的白色右键标注菜单](docs/images/context-menu.png)
+
+**选择 Annotation 后，为元素填写修改备注：**
+
+![Annotation 备注面板：填写需求并保存，继续标注](docs/images/annotation-note.png)
+
 ## 功能
 
 - **Quick annotation**：引用右键点中的元素，立即加入当前聊天草稿。
