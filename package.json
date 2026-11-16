@@ -51,10 +51,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/arturc63oby/dsh-browser-annotation.git"
+    "url": "git+https://github.com/chnuuh/dsh-browser-annotation.git"
   },
-  "homepage": "https://github.com/arturc63oby/dsh-browser-annotation#readme",
+  "homepage": "https://github.com/chnuuh/dsh-browser-annotation#readme",
   "bugs": {
-    "url": "https://github.com/arturc63oby/dsh-browser-annotation/issues"
+    "url": "https://github.com/chnuuh/dsh-browser-annotation/issues"
   }
 }

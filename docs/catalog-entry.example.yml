@@ -1,7 +1,7 @@
 # Submit only after Desktop verification passes and the public repository is at least one day old.
-# Submit as data/plugins/arturc63oby__dsh-browser-annotation.yml in awesome-dsh-plugin.
-url: https://github.com/arturc63oby/dsh-browser-annotation
-name: arturc63oby/dsh-browser-annotation
+# Submit as data/plugins/chnuuh__dsh-browser-annotation.yml in awesome-dsh-plugin.
+url: https://github.com/chnuuh/dsh-browser-annotation
+name: chnuuh/dsh-browser-annotation
 category: browser
 description:
   en: 'Quick and batch webpage annotations added to chat drafts in DSH Desktop.'

@@ -36,7 +36,7 @@
 在 DSH **插件 → 添加插件**中填写：
 
 ```text
-github:arturc63oby/dsh-browser-annotation#v0.1.0-alpha.1
+github:chnuuh/dsh-browser-annotation#v0.1.0-alpha.1
 ```
 
 这是供测试使用的 alpha tag。也可指定经过验证的 commit，避免分支变化。包中提交了构建好的 `client.js`，不需要安装脚本、Python 或额外服务。

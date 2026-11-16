@@ -2,7 +2,7 @@
 
 ## GitHub 发布
 
-1. 当前发布仓库为 [arturc63oby/dsh-browser-annotation](https://github.com/arturc63oby/dsh-browser-annotation)；包元数据和 README 已配置该地址。
+1. 当前发布仓库为 [chnuuh/dsh-browser-annotation](https://github.com/chnuuh/dsh-browser-annotation)；包元数据和 README 已配置该地址。
 2. 当前代码可作为 alpha 测试版发布。正式发布稳定版及申请市场收录前，完成 Desktop 现场验收并更新兼容范围和验证记录。
 3. 运行 `npm run check` 和 `npm pack --ignore-scripts`，检查包内仅含运行文件、展示资源、说明和许可证。
 4. 提交源码、生成的 `client.js` 和说明到独立 Git 仓库，推送后创建 `v0.1.0-alpha.1` tag 与 GitHub Release，附 npm 生成的 `.tgz`。GitHub 用户可直接指定仓库和 tag 安装，无需先发布 npm。
@@ -18,7 +18,7 @@
 
 ```sh
 node scripts/market-index.mjs \
-  --repo arturc63oby/dsh-browser-annotation \
+  --repo chnuuh/dsh-browser-annotation \
   --commit FULL_40_CHARACTER_COMMIT_SHA \
   --published-at 2026-11-15T22:00:00+08:00 \
   --output market-index.json
@@ -34,7 +34,7 @@ node scripts/market-index.mjs \
 
 - 仓库必须公开、创建满 1 天，并有实际可用代码与 `dsh.bundle` 清单。
 - 为仓库添加 `dsh-plugin` topic。
-- 向目录仓库新增一个 `data/plugins/arturc63oby__dsh-browser-annotation.yml`，分类使用 `browser`；中英文描述必须与实际功能一致。
+- 向目录仓库新增一个 `data/plugins/chnuuh__dsh-browser-annotation.yml`，分类使用 `browser`；中英文描述必须与实际功能一致。
 - 不手改目录仓库自动生成的 README。维护者审核合并后，由目录和市场同步。
 - 不强制发布 npm；可以使用 GitHub 源码或 GitHub Release 上预构建的 `.tgz`。
 
