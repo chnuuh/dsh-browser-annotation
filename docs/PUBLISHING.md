@@ -3,7 +3,7 @@
 ## GitHub 发布
 
 1. 当前发布仓库为 [chnuuh/dsh-browser-annotation](https://github.com/chnuuh/dsh-browser-annotation)；包元数据和 README 已配置该地址。
-2. 当前代码可作为 alpha 测试版发布。正式发布稳定版及申请市场收录前，完成 Desktop 现场验收并更新兼容范围和验证记录。
+2. 当前代码可作为 alpha 测试版发布。正式发布稳定版前，完成 Desktop 现场验收并更新兼容范围和验证记录。2026-11-16 维护者决定先提交市场收录 Draft PR，披露尚未完成的 Desktop 现场验收，不宣称已通过。
 3. 运行 `npm run check` 和 `npm pack --ignore-scripts`，检查包内仅含运行文件、展示资源、说明和许可证。
 4. 提交源码、生成的 `client.js` 和说明到独立 Git 仓库，推送后创建 `v0.1.0-alpha.1` tag 与 GitHub Release，附 npm 生成的 `.tgz`。GitHub 用户可直接指定仓库和 tag 安装，无需先发布 npm。
 5. 在一个干净 profile 中按 README 的 GitHub 地址安装，验证停用、重启和卸载，然后公布安装地址。
@@ -38,7 +38,7 @@ node scripts/market-index.mjs \
 - 不手改目录仓库自动生成的 README。维护者审核合并后，由目录和市场同步。
 - 不强制发布 npm；可以使用 GitHub 源码或 GitHub Release 上预构建的 `.tgz`。
 
-待填写的条目模板见 [catalog-entry.example.yml](catalog-entry.example.yml)。本插件未完成 Desktop 现场验收，当前不提交收录 PR。发布时需再次核对目录规则。
+条目模板见 [catalog-entry.example.yml](catalog-entry.example.yml)。本插件未完成 Desktop 现场验收，当前按维护者决定准备 alpha 收录 Draft PR。仓库创建于 2026-11-16 06:47:13 UTC，至 2026-11-17 06:47:13 UTC 才满 24 小时；此前不勾选目录 PR 的仓库年龄检查项。发布时需再次核对目录规则。
 
 “添加自定义索引”不等于“已进入默认市场”。国内用户的访问速度取决于仓库和索引托管地址，GitHub 来源不能保证国内下载可达。
 

@@ -20,7 +20,7 @@
 
 - 通过 DSH 插件管理器安装到真实 profile、公共 slot 的实际渲染、Desktop webview → 聊天草稿完整交付、停用再启用及重启。
 - 原有 annotation v3 补丁退出后与独立版的迁移流程。
-- Windows/Linux、其他 Desktop/DS Bot 版本、GitHub 远程安装及社区市场收录。
+- Windows/Linux、其他 Desktop/DS Bot 版本及社区市场收录。
 
 当前工作没有修改任何已安装 DS Bot 文件，没有迁移现有补丁或重启 DSH。已有 CLI/Finder 维护策略保持原状。
 
@@ -34,3 +34,19 @@
 6. 停用后菜单消失，再启用恢复；重启后仍可用。
 
 验收通过前只应标记 alpha 测试版，不能将单元测试或独立 Chromium 测试当作 Desktop 验收。
+
+## 2026-11-16 安装与卸载验收
+
+对象：已发布的 `github:chnuuh/dsh-browser-annotation#v0.1.0-alpha.1`，解析到 commit `93368d5d118215c5b095f27659f401ea95ef3e43`。本地文档基线为 `14b4551`，两者运行文件一致。
+
+环境：macOS、DSH Desktop 0.14.0 自带的 DSH CLI、pnpm 12.5.1。设置独立 `DSH_HOME`，使用无用户数据的 `annotation-check` profile；没有修改运行中的 Desktop profile。
+
+- **通过：GitHub 安装。** 官方 `dsh plugin --profile annotation-check add` 成功，退出码 0。依赖与 `dsh.profile.bundles` 均登记该插件，无需执行安装脚本。
+- **通过：bundle 识别。** 官方 `--dump-config` 显示唯一的 `dsh-browser-annotation` 插件行及版本 `0.1.0-alpha.1`；安装后的 `client.js`、`index.js`、`cordis.patch.yml` 与本地基线逐字节一致。
+- **通过：卸载。** 官方 `dsh plugin --profile annotation-check remove dsh-browser-annotation` 成功，退出码 0；卸载后 `--dump-config` 为空。
+- **尚未验证：真实 Desktop UI。** 当前自动化浏览器入口不可用；独立 Playwright 浏览器访问运行中的 DSH 返回 HTTP 401、`authentication required`。尚未进入已认证的 Desktop 窗口，不能验证 public slot 渲染、webview 到草稿交付、停用再启用和重启。
+- **未执行：旧补丁迁移。** 磁盘检查确认旧 Annotation v3 仍在，Finder 注册仍停用，CLI 续跑补丁仍在；本轮没有改动这些安装文件。
+
+结论：安装包生命周期的安装／识别／卸载已通过，Desktop 现场验收仍未完成。普通浏览器的 iframe 不能代替 Electron webview 验收。
+
+2026-11-16 发布决定：维护者决定暂缓剩余 Desktop 现场验收，先以 alpha 状态提交市场收录 Draft PR，并在 PR 中披露验证范围。该决定不等于现场验收通过。仓库创建满 24 小时后才满足目录的仓库年龄要求；收录由目录维护者审核决定。

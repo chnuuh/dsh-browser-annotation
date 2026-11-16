@@ -1,4 +1,4 @@
-# Submit only after Desktop verification passes and the public repository is at least one day old.
+# Alpha submission: disclose pending Desktop verification; keep the PR draft until the repository is at least one day old.
 # Submit as data/plugins/chnuuh__dsh-browser-annotation.yml in awesome-dsh-plugin.
 url: https://github.com/chnuuh/dsh-browser-annotation
 name: chnuuh/dsh-browser-annotation
