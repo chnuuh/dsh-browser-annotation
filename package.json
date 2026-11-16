@@ -48,5 +48,13 @@
         "@deepseek-ai/dsh-client-ui-conversation"
       ]
     }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/arturc63oby/dsh-browser-annotation.git"
+  },
+  "homepage": "https://github.com/arturc63oby/dsh-browser-annotation#readme",
+  "bugs": {
+    "url": "https://github.com/arturc63oby/dsh-browser-annotation/issues"
   }
 }

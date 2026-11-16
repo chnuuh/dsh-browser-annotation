@@ -2,7 +2,7 @@
 
 在 DSH Desktop 内嵌网页上右键，把具体元素与修改备注加入当前聊天草稿。
 
-**状态：0.1.0-alpha.1，待 Desktop 现场验收。尚未发布到 GitHub 或插件市场。**
+**状态：0.1.0-alpha.1，GitHub 测试版，待 Desktop 现场验收，尚未收录到插件市场。**
 
 这是独立的 DSH client 插件，不覆盖 DS Bot 文件，不包含 Finder 菜单或 CLI 续跑补丁。可以独立安装、停用和卸载。DS Bot 更新不会直接覆盖本插件；DSH 的接口或浏览器实现变化时仍需验证兼容性。
 
@@ -33,13 +33,13 @@
 
 ## 安装
 
-仓库发布后，在 DSH **插件 → 添加插件**中填写：
+在 DSH **插件 → 添加插件**中填写：
 
 ```text
-github:OWNER/dsh-browser-annotation#v0.1.0-alpha.1
+github:arturc63oby/dsh-browser-annotation#v0.1.0-alpha.1
 ```
 
-`OWNER` 需替换为发布者的实际 GitHub 账号；此占位地址目前不可安装。也可指定经过验证的 commit，避免分支变化。包中提交了构建好的 `client.js`，不需要安装脚本、Python 或额外服务。
+这是供测试使用的 alpha tag。也可指定经过验证的 commit，避免分支变化。包中提交了构建好的 `client.js`，不需要安装脚本、Python 或额外服务。
 
 本地测试时，将本仓库绝对路径交给 DSH 插件管理器的“安装组合包”操作。以管理器返回的应用状态为准；如果提示需要重启，保存工作后完全退出再打开 DSH。不要手工编辑 profile 配置或拷贝本插件到 DS Bot 安装目录。
 
