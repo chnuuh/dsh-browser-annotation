@@ -24,7 +24,7 @@ export function createRuntime({ current, session, owner, timers = globalThis, re
   const bindings = new Map();
   const touched = new Set();
   const receipts = new WeakMap();
-  let stopped = false, enabled = true, timer, busy = null, status;
+  let stopped = false, timer, busy = null, status;
   const emit = value => { if (value !== status) { status = value; report(value); } };
   const disposeGuest = async guest => {
     try {
@@ -35,11 +35,11 @@ export function createRuntime({ current, session, owner, timers = globalThis, re
     const guests = [...touched]; touched.clear();
     await Promise.all(guests.map(disposeGuest));
   };
-  const stillCurrent = (guest, id, url, binding) => !stopped && enabled && current() === guest &&
+  const stillCurrent = (guest, id, url, binding) => !stopped && current() === guest &&
     session() === id && guest.getURL() === url && bindings.get(id) === binding;
 
   async function step() {
-    if (stopped || !enabled) return;
+    if (stopped) return;
     const id = session();
     const binding = bindings.get(id);
     if (!id || !binding) { emit('no-composer'); return; }
@@ -62,7 +62,7 @@ export function createRuntime({ current, session, owner, timers = globalThis, re
     if (result?.install) {
       touched.add(guest);
       const installed = await guest.executeJavaScript(`(${installGuestAnnotations.toString()})(${JSON.stringify(id)},${JSON.stringify(owner)})`);
-      if (stopped || !enabled) { await disposeGuest(guest); return; }
+      if (stopped) { await disposeGuest(guest); return; }
       if (installed?.legacy || installed?.conflict) { emit(installed.legacy ? 'legacy' : 'conflict'); return; }
       if (!stillCurrent(guest, id, url, binding)) return;
       emit('ready'); return;
@@ -91,10 +91,6 @@ export function createRuntime({ current, session, owner, timers = globalThis, re
       if (!id || typeof inputActions?.captureInsertion !== 'function' || typeof inputActions?.insertText !== 'function') return () => {};
       const binding = { inputActions }; bindings.set(id, binding);
       return () => { if (bindings.get(id) === binding) bindings.delete(id); };
-    },
-    async setEnabled(value) {
-      enabled = value;
-      if (!value) { if (busy) await busy; await clearGuests(); emit('paused'); }
     },
     async dispose() {
       stopped = true; timers.clearTimeout(timer);

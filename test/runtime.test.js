@@ -41,11 +41,11 @@ test('unmount removes binding; stale cleanup cannot remove a replacement binding
   h.result(packet());await h.run();assert.equal(h.inserted.length,1);
   const offNew=h.runtime.bind('a',h.actions);offNew();h.result(packet('two'));await h.run();assert.equal(h.inserted.length,1);await h.runtime.dispose();
 });
-test('pause and unload clean up only owned guest code; hidden pages are not polled',async()=>{
+test('hidden pages are not polled and unloading disposes owned guest code',async()=>{
   const h=setup();h.result({install:true});await h.run();assert.match(h.scripts[1],/installGuestAnnotations/);
-  await h.runtime.setEnabled(false);assert.match(h.scripts.at(-1),/a\?\.owner==="owner"/);assert.match(h.scripts.at(-1),/a.dispose/);
-  const before=h.scripts.length;await h.run();assert.equal(h.scripts.length,before);
-  await h.runtime.setEnabled(true);h.hide();await h.run();assert.equal(h.scripts.length,before);await h.runtime.dispose();
+  const before=h.scripts.length;h.hide();await h.run();assert.equal(h.scripts.length,before);
+  await h.runtime.dispose();assert.match(h.scripts.at(-1),/a\?\.owner==="owner"/);assert.match(h.scripts.at(-1),/a.dispose/);
+  const after=h.scripts.length;await h.run();assert.equal(h.scripts.length,after);
 });
 test('unload during asynchronous guest injection cleans up after injection completes',async()=>{
   const h=setup();let resolve;

@@ -6,15 +6,30 @@ import { makeIndex } from '../scripts/market-index.mjs';
 
 const root=new URL('../',import.meta.url);
 const read=name=>fs.readFileSync(new URL(name,root),'utf8');
-test('DSH module factory registers a public composer slot and has disposable effects',()=>{
-  let declaration;const context=vm.createContext({window:{__ModuleLoader__:{load:d=>{declaration=d;}}},Map,Set});
-  vm.runInContext(read('client.js'),context);
-  assert.equal(declaration.id,'dsh-browser-annotation');
-  const plugin=declaration.factory(name=>{assert.equal(name,'react');return {};});
-  assert.deepEqual([...plugin.inject],['slots','sessions','locale']);
-  const effects=[],slots=[];
-  plugin.apply({effect:(fn,name)=>effects.push({fn,name}),slots:{inject:(name,fn)=>{slots.push(name);fn();},register:(options,component)=>{assert.equal(options.id,'dsh-browser-annotation');assert.equal(typeof component,'function');}}});
-  assert.deepEqual(slots,['conversation.input.right']);assert.equal(effects.length,2);
+test('the shipped composer slot binds draft actions without rendering a control', () => {
+  let declaration, component, effect, binding;
+  const context = vm.createContext({
+    window: { __ModuleLoader__: { load: value => { declaration = value; } } },
+    crypto: { randomUUID: () => 'test-owner' }, setTimeout: () => 1, clearTimeout() {}
+  });
+  vm.runInContext(read('client.js'), context);
+  const plugin = declaration.factory(name => {
+    assert.equal(name, 'react');
+    return { useEffect: callback => { binding = callback; } };
+  });
+  plugin.apply({
+    effect: callback => { effect = callback; },
+    slots: {
+      inject(name, register) { assert.equal(name, 'conversation.input.right'); register(); },
+      register(options, view) { assert.equal(options.id, 'dsh-browser-annotation'); component = view; }
+    }
+  });
+  const dispose = effect();
+  const actions = { captureInsertion() {}, insertText() {} };
+  assert.equal(component({ sessionId: 'demo', inputActions: actions }), null);
+  const unbind = binding();
+  unbind();
+  return dispose();
 });
 test('package is standalone, ships generated client and has no install hooks or DS Bot dependency',()=>{
   const meta=JSON.parse(read('package.json'));
