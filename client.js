@@ -9,8 +9,6 @@ const annotationMessages = {
     "exit": "退出",
     "exitPrompt": "退出会丢弃本次尚未加入对话的标注，确定退出？",
     "saved": "已保存的标注",
-    "reselect": "重新点选",
-    "reselectPrompt": "重新点选会丢弃当前这条备注，确定继续？",
     "placeholder": "填写这个元素需要怎么修改…",
     "noteLabel": "标注备注",
     "pick": "移动十字光标，点击要标注的元素。",
@@ -39,8 +37,6 @@ const annotationMessages = {
     "exit": "Exit",
     "exitPrompt": "Discard annotations that have not been added to the chat?",
     "saved": "Saved annotations",
-    "reselect": "Select again",
-    "reselectPrompt": "Discard this note and select another element?",
     "placeholder": "Describe what you want to change…",
     "noteLabel": "Annotation note",
     "pick": "Move the crosshair and click an element to annotate.",
@@ -89,11 +85,13 @@ function installGuestAnnotations(sessionId, owner = 'test', messages = annotatio
     .menu{position:fixed;min-width:190px;padding:5px}.menu button{display:block;width:100%;text-align:left;border:0}
     .panel{position:fixed;right:12px;bottom:12px;width:min(340px,calc(100vw - 24px));padding:12px;max-height:80vh;overflow:auto}
     .heading{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
-    .heading button,.change{padding:2px 6px;font-size:12px}
+    .heading button{padding:2px 6px;font-size:12px}
     .current{display:flex;align-items:center;gap:8px}.current .hint{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .shield{position:fixed;inset:0;pointer-events:auto;cursor:default}
     .picking{cursor:crosshair}
     .outline{position:fixed;border:2px solid #2563eb;background:#3b82f620;pointer-events:none;border-radius:3px}
+    .chosen{border-color:#14804a;background:#22c55e30}
+    .excerpt{border:0;border-bottom:2px solid #14804a;background:#22c55e55;border-radius:1px}
     .badge{position:fixed;background:#2563eb;color:#fff;border:2px solid #fff;border-radius:12px;font:12px system-ui;padding:1px 6px;pointer-events:none}
     textarea{display:block;width:100%;min-height:90px;margin:8px 0;padding:8px;border:1px solid #cbd5e1;border-radius:6px;resize:vertical;background:#fff;color:#111827}
     .row{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}.hint{color:#6b7280;font-size:12px;overflow-wrap:anywhere}
@@ -191,18 +189,34 @@ function installGuestAnnotations(sessionId, owner = 'test', messages = annotatio
       rect: { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) },
       limitation: node.matches('iframe,canvas') ? 'container' : '' };
   }
+  function selectionAt(x, y) {
+    const selection = doc.getSelection?.();
+    if (!selection || selection.isCollapsed || selection.rangeCount !== 1) return null;
+    const range = selection.getRangeAt(0);
+    const hit = Array.from(range.getClientRects()).some(r =>
+      x >= r.left && x < r.right && y >= r.top && y < r.bottom);
+    if (!hit) return null;
+    const ancestor = range.commonAncestorContainer;
+    const node = ancestor.nodeType === 1 ? ancestor : ancestor.parentElement;
+    const excluded = 'input,textarea,select,[contenteditable],script,style,[data-dsh-browser-annotation]';
+    if (!node || node.closest(excluded) ||
+        Array.from(node.querySelectorAll(excluded)).some(el => range.intersectsNode(el))) return null;
+    const text = range.toString().trim().slice(0, 600);
+    if (!text) return null;
+    const { x: left, y: top, width, height } = range.getBoundingClientRect();
+    const data = describe(node);
+    data.text = text;
+    data.rect = { x: Math.round(left), y: Math.round(top), width: Math.round(width), height: Math.round(height) };
+    return { node, range: range.cloneRange(), data, note: '' };
+  }
   function targetAt(x, y) {
-    host.style.setProperty('display', 'none', 'important');
-    let target;
-    try {
-      target = doc.elementFromPoint(x, y);
-      for (let i = 0; i < 8 && target?.shadowRoot; i++) {
-        const child = target.shadowRoot.elementFromPoint?.(x, y);
-        if (!child || child === target) break;
-        target = child;
-      }
-    } finally { host.style.setProperty('display', 'block', 'important'); }
-    return target && target !== host && target !== doc.documentElement ? target : null;
+    let target = doc.elementsFromPoint(x, y).find(node => node !== host);
+    for (let i = 0; i < 8 && target?.shadowRoot; i++) {
+      const child = target.shadowRoot.elementFromPoint?.(x, y);
+      if (!child || child === target) break;
+      target = child;
+    }
+    return target && target !== doc.documentElement ? target : null;
   }
   function button(key, run, primary = false) {
     const node = localize(el('button', primary ? 'primary' : ''), key);
@@ -226,12 +240,17 @@ function installGuestAnnotations(sessionId, owner = 'test', messages = annotatio
   }
   function paintMarks() {
     for (const marker of layer.querySelectorAll('.outline,.badge')) marker.remove();
-    const target = selected?.node || hovered;
-    if (target?.isConnected) {
-      const r = target.getBoundingClientRect();
-      const outline = el('div', 'outline');
-      Object.assign(outline.style, { left:r.left+'px', top:r.top+'px', width:r.width+'px', height:r.height+'px' });
+    function mark(rect, className) {
+      if (!rect.width || !rect.height) return;
+      const outline = el('div', 'outline ' + className);
+      Object.assign(outline.style, { left: rect.left+'px', top: rect.top+'px', width: rect.width+'px', height: rect.height+'px' });
       layer.prepend(outline);
+    }
+    if (hovered?.isConnected && hovered !== selected?.node) mark(hovered.getBoundingClientRect(), 'candidate');
+    if (selected?.node.isConnected) {
+      if (selected.range) {
+        for (const rect of selected.range.getClientRects()) mark(rect, 'chosen excerpt');
+      } else mark(selected.node.getBoundingClientRect(), 'chosen');
     }
     notes.forEach((item, index) => {
       if (!item.node?.isConnected) return;
@@ -245,24 +264,26 @@ function installGuestAnnotations(sessionId, owner = 'test', messages = annotatio
   }
   function drawBatch() {
     layer.replaceChildren();
-    const shield = el('div', selected ? 'shield' : 'shield picking');
-    if (!selected) {
-      shield.addEventListener('pointermove', event => {
-        const target = targetAt(event.clientX, event.clientY);
-        if (target === hovered) return;
-        hovered = target;
-        paintMarks();
-      });
-      shield.addEventListener('click', event => {
-        event.preventDefault();
-        event.stopPropagation();
-        const node = targetAt(event.clientX, event.clientY);
-        if (!node) return;
-        selected = { node, data: describe(node), note: '' };
-        hovered = null;
-        drawBatch();
-      });
-    }
+    const shield = el('div', 'shield picking');
+    shield.addEventListener('pointermove', event => {
+      const target = targetAt(event.clientX, event.clientY);
+      if (target === hovered) return;
+      hovered = target;
+      paintMarks();
+    });
+    shield.addEventListener('pointerleave', () => {
+      hovered = null;
+      paintMarks();
+    });
+    shield.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      const node = targetAt(event.clientX, event.clientY);
+      if (!node) return;
+      selected = { node, data: describe(node), note: selected?.note || '' };
+      hovered = null;
+      drawBatch();
+    });
     layer.append(shield);
 
     const panel = el('div', 'box panel');
@@ -279,8 +300,8 @@ function installGuestAnnotations(sessionId, owner = 'test', messages = annotatio
     if (notes.length) {
       const list = el('ol', 'list');
       localize(list, 'saved', 'aria-label');
-      notes.forEach(({ data, note }, index) => {
-        const name = elementName(data);
+      notes.forEach(({ data, note, range }, index) => {
+        const name = range ? data.text : elementName(data);
         const row = el('li');
         row.title = name + ' · ' + note;
         row.append(el('span', '', '#' + (index + 1)), el('span', 'saved-element', name), el('span', 'saved-note', note));
@@ -293,18 +314,13 @@ function installGuestAnnotations(sessionId, owner = 'test', messages = annotatio
     let input;
     if (selected) {
       const current = el('div', 'current');
-      const change = button('reselect', () => {
-        if (selected.note.trim() && !confirm(messages[language].reselectPrompt)) return;
-        selected = null;
-        drawBatch();
-      });
-      change.className = 'change';
-      current.append(el('strong', '', '#' + (notes.length + 1)), el('span', 'hint', elementName(selected.data)), change);
+      current.append(el('strong', '', '#' + (notes.length + 1)), el('span', 'hint', selected.range ? selected.data.text : elementName(selected.data)));
       panel.append(current);
       if (selected.data.limitation) panel.append(localize(el('div', 'hint'), 'container'));
       input = el('textarea');
       localize(input, 'placeholder', 'placeholder');
       input.maxLength = 2000;
+      input.value = selected.note;
       localize(input, 'noteLabel', 'aria-label');
       input.addEventListener('input', () => { selected.note = input.value; });
       panel.append(input);
@@ -345,10 +361,18 @@ function installGuestAnnotations(sessionId, owner = 'test', messages = annotatio
     if(active || pending) return;
     refreshLanguage();
     const data=describe(node);
+    const excerpt = selectionAt(event.clientX, event.clientY);
     layer.replaceChildren();
     const pop=el('div','box menu');pop.setAttribute('role','menu');
     const quick=button('quick',()=>send([{data,note:''}],'quick'));
-    const batch=button('batch',()=>{active=true;selected=null;hovered=null;notes=[];drawBatch();});
+    const batch = button('batch', () => {
+      selected = excerpt || { node, data, note: '' };
+      if (excerpt) doc.getSelection()?.removeAllRanges();
+      active = true;
+      hovered = null;
+      notes = [];
+      drawBatch();
+    });
     for(const b of [quick,batch])b.setAttribute('role','menuitem');
     pop.append(quick,batch);layer.append(pop);
     const r=pop.getBoundingClientRect();

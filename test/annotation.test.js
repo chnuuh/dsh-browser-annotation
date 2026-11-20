@@ -53,7 +53,7 @@ class Node extends Events {
 }
 function guest(lang = 'zh-CN', languages = ['en-US']){
   const win=new Events();
-  const doc={title:'设备页',createElement(tag){return new Node(tag,doc);},elementFromPoint(){return doc.hit;}};
+  const doc={title:'设备页',createElement(tag){return new Node(tag,doc);},elementsFromPoint(){return [doc.hit];}};
   doc.documentElement=new Node('html',doc);doc.body=new Node('body',doc);doc.documentElement.append(doc.body);
   const target=doc.createElement('button');target.id='save';target.textContent='保存设备';doc.body.append(target);doc.hit=target;
   doc.documentElement.lang = lang;
@@ -78,13 +78,20 @@ test('guest exposes exactly the two requested menu actions; quick queues one ref
 });
 test('batch keeps several notes local until Finish, and Escape does not discard them',()=>{
   const g=guest();g.context();g.click('标注');
-  assert.equal(g.root().querySelector('textarea'), null);
+  assert.ok(g.root().querySelector('textarea'));
+  assert.ok(g.root().querySelector('.chosen'));
   assert.ok(g.root().querySelector('.picking'));
+  const initialInput = g.root().querySelector('textarea');
+  initialInput.value = '保留已输入的备注';
+  initialInput.emit('input');
   const other=g.doc.createElement('div');other.id='toolbar';other.textContent='工具栏';g.doc.body.append(other);g.doc.hit=other;
   g.root().querySelector('.shield').emit('pointermove',{clientX:50,clientY:60});
-  assert.ok(g.root().querySelector('.outline'));
+  assert.ok(g.root().querySelector('.candidate'));
+  assert.ok(g.root().querySelector('.chosen'));
+  assert.equal(g.doc.activeElement, initialInput);
   g.root().querySelector('.shield').emit('click',{clientX:50,clientY:60});
-  assert.equal(g.root().querySelector('.picking'),null);
+  assert.ok(g.root().querySelector('.picking'));
+  assert.equal(g.root().querySelector('textarea').value, '保留已输入的备注');
   g.root().querySelector('textarea').value='工具栏移到顶部';g.click('保存，继续标注');
   assert.equal(g.api().poll('session-A',null),null);
   g.win.emit('keydown',{key:'Escape'});
