@@ -1,1 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="5" y="8" width="54" height="43" rx="9" fill="#2563eb"/><path d="M6 21h52" stroke="#fff" stroke-width="3"/><circle cx="14" cy="15" r="2" fill="#fff"/><circle cx="22" cy="15" r="2" fill="#fff"/><path d="m22 29 21 7-10 4-4 10z" fill="#fff"/><path d="m39 42 10 10" stroke="#2563eb" stroke-width="7"/><path d="m39 42 10 10" stroke="#fff" stroke-width="3"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 96 96" role="img" aria-labelledby="title">
+  <title id="title">网页元素标注</title>
+  <defs>
+    <linearGradient id="tile" x2=".85" y2="1" gradientUnits="objectBoundingBox">
+      <stop stop-color="#2769eb"/>
+      <stop offset="1" stop-color="#163991"/>
+    </linearGradient>
+  </defs>
+  <rect x="1" y="1" width="94" height="94" rx="22" fill="url(#tile)"/>
+  <g fill="none" stroke="#e8f4ff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M18 33v-9a5 5 0 0 1 5-5h10m13 0h9a5 5 0 0 1 5 5v9M18 46v9a5 5 0 0 0 5 5h10"/>
+    <path d="M32 39h14m-7-7v14"/>
+  </g>
+  <path d="M48 42h25a7 7 0 0 1 7 7v16a7 7 0 0 1-7 7H58l-12 8V71a7 7 0 0 1-5-7V49a7 7 0 0 1 7-7Z" fill="#98f2df"/>
+  <path d="M51 53h19m-19 9h12" fill="none" stroke="#113d64" stroke-width="4" stroke-linecap="round"/>
+</svg>

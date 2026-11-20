@@ -1,4 +1,4 @@
-# DSH browser annotation
+# <img src="docs/images/icon.png" width="40" height="40" align="absmiddle" alt=""> DSH browser annotation
 
 在 DSH Desktop 的内嵌浏览器里给网页元素添加标注，点 **完成并加入对话**，元素信息和你的备注就会直接填入**当前对话的输入框**。你可以继续编辑草稿，确认后再发送。
 
