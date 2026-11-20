@@ -1,6 +1,6 @@
 {
   "name": "dsh-browser-annotation",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Quick and batch webpage annotations for the DSH Desktop chat composer.",
   "type": "module",
   "license": "Apache-2.0",

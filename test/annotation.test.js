@@ -77,14 +77,30 @@ test('guest exposes exactly the two requested menu actions; quick queues one ref
 });
 test('batch keeps several notes local until Finish, and Escape does not discard them',()=>{
   const g=guest();g.context();g.click('Annotation');
-  g.root().querySelector('textarea').value='第一个按钮改为蓝色';g.click('保存，继续标注');
-  assert.equal(g.api().poll('session-A',null),null);
-  g.win.emit('keydown',{key:'Escape'});assert.match(g.root().textContent,/已保存 1 条/);
+  assert.equal(g.root().querySelector('textarea'), null);
+  assert.ok(g.root().querySelector('.picking'));
   const other=g.doc.createElement('div');other.id='toolbar';other.textContent='工具栏';g.doc.body.append(other);g.doc.hit=other;
+  g.root().querySelector('.shield').emit('pointermove',{clientX:50,clientY:60});
+  assert.ok(g.root().querySelector('.outline'));
   g.root().querySelector('.shield').emit('click',{clientX:50,clientY:60});
-  g.root().querySelector('textarea').value='工具栏移到顶部';g.click('完成并加入对话');
+  assert.equal(g.root().querySelector('.picking'),null);
+  g.root().querySelector('textarea').value='工具栏移到顶部';g.click('保存，继续标注');
+  assert.equal(g.api().poll('session-A',null),null);
+  g.win.emit('keydown',{key:'Escape'});
+  assert.ok(g.root().querySelector('.picking'));
+  assert.equal(g.root().querySelector('textarea'),null);
+  const panel=g.root().querySelector('.panel');
+  assert.equal(panel.querySelector('.saved-element').textContent,'工具栏');
+  assert.equal(panel.querySelector('.saved-note').textContent,'工具栏移到顶部');
+  assert.deepEqual(g.root().querySelectorAll('button'), panel.querySelectorAll('button'));
+  g.doc.hit=g.target;
+  g.root().querySelector('.shield').emit('click',{clientX:30,clientY:50});
+  g.root().querySelector('textarea').value='按钮改为蓝色';g.click('完成并加入对话');
   const p=g.api().poll('session-A',null);assert.equal(p.mode,'batch');assert.equal(p.items.length,2);
-  assert.equal(p.items[1].selector,'#toolbar');assert.equal(p.items[1].note,'工具栏移到顶部');
+  assert.equal(p.items[0].selector,'#toolbar');assert.equal(p.items[0].note,'工具栏移到顶部');
+  assert.equal(p.items[1].selector,'#save');assert.equal(p.items[1].note,'按钮改为蓝色');
+  assert.equal(g.root().querySelector('.shield'),null);
+  assert.equal(g.root().querySelector('.panel'),null);
 });
 test('selection shields website controls; form values and script text are not collected',()=>{
   const g=guest();const input=g.doc.createElement('textarea');input.textContent='secret-field';input.value='typed-secret';
@@ -110,4 +126,30 @@ test('non-secure HTTP pages without randomUUID still generate an annotation id',
   const g=guest();g.sandbox.crypto={getRandomValues:array=>array.fill(42)};
   g.context();g.click('Quick annotation');
   assert.match(g.api().poll('session-A',null).id,/^[0-9a-f]{32}$/);
+});
+
+test('Finish while picking delivers saved notes without requiring an extra click on the page', () => {
+  const g = guest();
+  g.context();
+  g.click('Annotation');
+  g.root().querySelector('.shield').emit('click', {clientX: 30, clientY: 50});
+  g.root().querySelector('textarea').value = '保留这条备注';
+  g.click('保存，继续标注');
+  g.click('完成并加入对话');
+  assert.equal(g.api().poll('session-A', null).items[0].note, '保留这条备注');
+  assert.equal(g.root().querySelector('.shield'), null);
+});
+
+test('finishing with an empty next element sends only previously saved notes', () => {
+  const g = guest();
+  g.context();
+  g.click('Annotation');
+  const pick = () => g.root().querySelector('.shield').emit('click', {clientX: 30, clientY: 50});
+  pick();
+  g.root().querySelector('textarea').value = '已写好的备注';
+  g.click('保存，继续标注');
+  pick();
+  g.click('完成并加入对话');
+  const packet = g.api().poll('session-A', null);
+  assert.deepEqual(Array.from(packet.items, item => item.note), ['已写好的备注']);
 });

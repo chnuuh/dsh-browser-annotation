@@ -18,17 +18,22 @@ export function installGuestAnnotations(sessionId, owner = 'test') {
     .box{font:13px/1.5 system-ui,-apple-system,sans-serif;color:#1f2937;background:#fff;border:1px solid #d1d5db;border-radius:10px;box-shadow:0 6px 25px #0002;pointer-events:auto}
     button{color:#1f2937;background:#fff;border:1px solid #d1d5db;border-radius:6px;padding:7px 10px;cursor:pointer}
     button:hover,button:focus-visible{background:#f3f4f6;outline:2px solid #93c5fd} button:disabled{opacity:.5;cursor:default}
-    .primary{background:#2563eb;color:#fff;border-color:#2563eb}.primary:hover{background:#1d4ed8}
+    .primary{background:#2563eb;color:#fff;border-color:#2563eb}.primary:hover,.primary:focus-visible{background:#1d4ed8}
     .menu{position:fixed;min-width:190px;padding:5px}.menu button{display:block;width:100%;text-align:left;border:0}
     .panel{position:fixed;right:12px;bottom:12px;width:min(340px,calc(100vw - 24px));padding:12px;max-height:80vh;overflow:auto}
-    .bar{position:fixed;left:12px;top:12px;max-width:calc(100vw - 24px);padding:8px;display:flex;gap:7px;align-items:center;flex-wrap:wrap}
-    .shield{position:fixed;inset:0;pointer-events:auto;cursor:crosshair}
+    .heading{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+    .heading button,.change{padding:2px 6px;font-size:12px}
+    .current{display:flex;align-items:center;gap:8px}.current .hint{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .shield{position:fixed;inset:0;pointer-events:auto;cursor:default}
+    .picking{cursor:crosshair}
     .outline{position:fixed;border:2px solid #2563eb;background:#3b82f620;pointer-events:none;border-radius:3px}
     .badge{position:fixed;background:#2563eb;color:#fff;border:2px solid #fff;border-radius:12px;font:12px system-ui;padding:1px 6px;pointer-events:none}
     textarea{display:block;width:100%;min-height:90px;margin:8px 0;padding:8px;border:1px solid #cbd5e1;border-radius:6px;resize:vertical;background:#fff;color:#111827}
     .row{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}.hint{color:#6b7280;font-size:12px;overflow-wrap:anywhere}
     .toast{position:fixed;left:12px;bottom:12px;padding:10px 14px;max-width:calc(100vw - 24px)}
-    .list{max-height:120px;overflow:auto;padding-left:20px}.list li{overflow-wrap:anywhere;margin:4px 0}
+    .list{list-style:none;max-height:110px;overflow:auto;margin:0 0 10px;padding:0;border-bottom:1px solid #e5e7eb}
+    .list li{display:flex;align-items:baseline;gap:6px;padding:3px 0;font-size:12px}
+    .saved-element,.saved-note{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.saved-element{max-width:45%;font-weight:600}.saved-note{flex:1;color:#4b5563}
   `;
   shadow.append(style);
   const layer = doc.createElement('div'); shadow.append(layer);
@@ -132,50 +137,102 @@ export function installGuestAnnotations(sessionId, owner = 'test') {
       Object.assign(badge.style, { left:Math.max(0,r.left)+'px', top:Math.max(0,r.top)+'px' }); layer.prepend(badge);
     });
   }
+  function elementName(data) {
+    return data.label || data.text || data.selector || data.tag;
+  }
   function drawBatch() {
     layer.replaceChildren();
-    const shield = el('div', 'shield');
-    shield.addEventListener('pointermove', event => { if (!selected) { hovered=targetAt(event.clientX,event.clientY);paintMarks(); } });
-    shield.addEventListener('click', event => {
-      event.preventDefault(); event.stopPropagation();
-      if(notes.length>=20){alert('一次最多汇总 20 条标注，请先加入对话。');return;}
-      const node=targetAt(event.clientX,event.clientY);
-      if (node && !selected) { selected={node,data:describe(node),note:''}; drawBatch(); }
-    });
+    const shield = el('div', selected ? 'shield' : 'shield picking');
+    if (!selected) {
+      shield.addEventListener('pointermove', event => {
+        const target = targetAt(event.clientX, event.clientY);
+        if (target === hovered) return;
+        hovered = target;
+        paintMarks();
+      });
+      shield.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        const node = targetAt(event.clientX, event.clientY);
+        if (!node) return;
+        selected = { node, data: describe(node), note: '' };
+        hovered = null;
+        drawBatch();
+      });
+    }
     layer.append(shield);
-    const bar=el('div','box bar');
-    bar.append(el('span','',`Annotation · 已保存 ${notes.length} 条`));
-    const finish=button('完成并加入对话',()=>{
-      if (selected) {
-        const note=layer.querySelector('textarea')?.value.trim();
-        if (note) notes.push({...selected,note});
-        else if (!notes.length) {layer.querySelector('textarea')?.focus();return;}
-      }
-      send(notes,'batch');
-    },true);
-    bar.append(finish,button('退出',()=>{
-      if ((notes.length || layer.querySelector('textarea')?.value.trim()) && !confirm('退出会丢弃本次尚未加入对话的标注，确定退出？')) return;
-      active=false;notes=[];selected=null;hovered=null;layer.replaceChildren();
+
+    const panel = el('div', 'box panel');
+    const heading = el('div', 'heading');
+    heading.append(el('strong', '', 'Annotation'), button('退出', () => {
+      if ((notes.length || selected?.note.trim()) && !confirm('退出会丢弃本次尚未加入对话的标注，确定退出？')) return;
+      active = false;
+      notes = [];
+      selected = null;
+      hovered = null;
+      layer.replaceChildren();
     }));
-    layer.append(bar);
-    const panel=el('div','box panel');
+    panel.append(heading);
+    if (notes.length) {
+      const list = el('ol', 'list');
+      list.setAttribute('aria-label', '已保存的标注');
+      notes.forEach(({ data, note }, index) => {
+        const name = elementName(data);
+        const row = el('li');
+        row.title = name + ' · ' + note;
+        row.append(el('span', '', '#' + (index + 1)), el('span', 'saved-element', name), el('span', 'saved-note', note));
+        list.append(row);
+      });
+      panel.append(list);
+    }
+
+    const actions = el('div', 'row');
+    let input;
     if (selected) {
-      panel.append(el('strong','',`标注 #${notes.length+1}`),el('div','hint',selected.data.text || selected.data.label || selected.data.tag));
-      if (selected.data.limitation) panel.append(el('div','hint',selected.data.limitation));
-      const input=el('textarea');input.placeholder='填写这个元素需要怎么修改…';input.maxLength=2000;input.value=selected.note;
-      input.setAttribute('aria-label','标注备注');
-      input.addEventListener('input',()=>{selected.note=input.value;});
+      const current = el('div', 'current');
+      const change = button('重新点选', () => {
+        if (selected.note.trim() && !confirm('重新点选会丢弃当前这条备注，确定继续？')) return;
+        selected = null;
+        drawBatch();
+      });
+      change.className = 'change';
+      current.append(el('strong', '', '#' + (notes.length + 1)), el('span', 'hint', elementName(selected.data)), change);
+      panel.append(current);
+      if (selected.data.limitation) panel.append(el('div', 'hint', selected.data.limitation));
+      input = el('textarea');
+      input.placeholder = '填写这个元素需要怎么修改…';
+      input.maxLength = 2000;
+      input.setAttribute('aria-label', '标注备注');
+      input.addEventListener('input', () => { selected.note = input.value; });
       panel.append(input);
-      const row=el('div','row');
-      row.append(button('保存，继续标注',()=>{
-        if (!input.value.trim()) {input.focus();return;}
-        if(notes.length>=20){alert('一次最多汇总 20 条标注，请先加入对话。');return;}
-        notes.push({...selected,note:input.value.trim()});selected=null;drawBatch();
-      },true),button('重新点选',()=>{selected=null;drawBatch();}));panel.append(row);
-      setTimeout(()=>{if(active && input.isConnected) input.focus();},0);
-    } else panel.append(el('div','hint','点选页面元素后填写备注。完成后，所有标注一起加入对话框。'));
-    if(notes.length){const list=el('ol','list');notes.forEach(item=>list.append(el('li','',item.note)));panel.append(list);}
-    layer.append(panel);paintMarks();
+    } else {
+      panel.append(el('div', 'hint', '移动十字光标，点击要标注的元素。'));
+    }
+    function saveCurrent() {
+      const note = input.value.trim();
+      if (!note) {
+        input.focus();
+        return false;
+      }
+      notes.push({ ...selected, note });
+      selected = null;
+      return true;
+    }
+    const finish = button('完成并加入对话', () => {
+      if (selected && (input.value.trim() || !notes.length) && !saveCurrent()) return;
+      send(notes, 'batch');
+    }, true);
+    finish.disabled = !selected && !notes.length;
+    actions.append(finish);
+    if (selected && notes.length < 19) {
+      actions.append(button('保存，继续标注', () => {
+        if (saveCurrent()) drawBatch();
+      }));
+    }
+    panel.append(actions);
+    layer.append(panel);
+    paintMarks();
+    if (input) input.focus();
   }
   function menu(event) {
     if(event.shiftKey || inside(event)) return;
@@ -187,7 +244,7 @@ export function installGuestAnnotations(sessionId, owner = 'test') {
     layer.replaceChildren();
     const pop=el('div','box menu');pop.setAttribute('role','menu');
     const quick=button('Quick annotation',()=>send([{data,note:''}],'quick'));
-    const batch=button('Annotation',()=>{active=true;selected={node,data,note:''};notes=[];drawBatch();});
+    const batch=button('Annotation',()=>{active=true;selected=null;hovered=null;notes=[];drawBatch();});
     for(const b of [quick,batch])b.setAttribute('role','menuitem');
     pop.append(quick,batch);layer.append(pop);
     const r=pop.getBoundingClientRect();
