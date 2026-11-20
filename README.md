@@ -29,13 +29,13 @@ Starting with 0.1.2, the annotation controls and draft labels follow the languag
 
 Right-click an element and choose **Annotation** to open the note field immediately. To annotate just a phrase, select the text first, then right-click inside the selection. **Quick annotation** sends the right-clicked element’s details straight to the draft.
 
-![在选中的「通过邮件通知我」上打开右键菜单 / Opening the menu on the selected phrase](docs/images/context-menu.png)
+![在选中的 “notify me by email” 上打开右键菜单 / Opening the menu on the selected phrase](docs/images/context-menu.png)
 
 ### 2. 写备注或更换目标 · Write a note or change the target
 
-**绿色**标出这条备注对应的文字或元素。移动十字光标，**蓝色**会标出候选元素；单击才会更换目标，已输入的备注会保留。图中备注仍属于绿色文字「通过邮件通知我」。
+**绿色**标出这条备注对应的文字或元素。移动十字光标，**蓝色**会标出候选元素；单击才会更换目标，已输入的备注会保留。图中的备注对应绿色文字 “notify me by email”。
 
-**Green** marks the text or element the note refers to. Move the crosshair to preview another element in **blue**. Click to switch targets and keep what you’ve typed. In the example, the note still refers to the green phrase.
+**Green** marks the text or element the note refers to. Move the crosshair to preview another element in **blue**. Click to switch targets and keep what you’ve typed. In the example, the note still refers to the green phrase “notify me by email”.
 
 ![绿色选中的文字、蓝色候选按钮和右下角备注框 / Selected text in green, a candidate button in blue, and the note panel](docs/images/annotation-note.png)
 
