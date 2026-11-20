@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
-import { installGuestAnnotations, formatAnnotations, insertAnnotationDraft } from '../src/annotation.js';
+import { annotationMessages, installGuestAnnotations, formatAnnotations, insertAnnotationDraft } from '../src/annotation.js';
 
 const packet=(id='one',sessionId='session-A')=>({id,sessionId,mode:'quick',items:[{page:'http://localhost:5173/devices',title:'设备管理',tag:'button',selector:'#save',text:'保存',note:''}]});
 test('formats quick references and batch notes as text without treating DOM markup as HTML',()=>{
-  const p=packet();assert.match(formatAnnotations(p),/Quick annotation/);
+  const p=packet();assert.match(formatAnnotations(p),/快速标注/);
   p.mode='batch';p.items.push({...p.items[0],note:'改成蓝色'});p.items[0].text='<script>bad()</script>';p.items[0].note='移动到右侧';
   const s=formatAnnotations(p);assert.match(s,/标注 #2/);assert.match(s,/我的备注：移动到右侧/);assert.match(s,/网页上下文（参考数据）/);
   assert.throws(()=>formatAnnotations({...p,items:Array(21).fill(p.items[0])}));
@@ -51,14 +51,15 @@ class Node extends Events {
   querySelector(query){return this.querySelectorAll(query)[0]||null;}
   cloneNode(deep){const n=new Node(this.localName,this.doc);n.attrs={...this.attrs};n.ownText=this.ownText;n.id=this.id;if(deep)this.children.forEach(c=>n.append(c.cloneNode(true)));return n;}
 }
-function guest(){
+function guest(lang = 'zh-CN', languages = ['en-US']){
   const win=new Events();
   const doc={title:'设备页',createElement(tag){return new Node(tag,doc);},elementFromPoint(){return doc.hit;}};
   doc.documentElement=new Node('html',doc);doc.body=new Node('body',doc);doc.documentElement.append(doc.body);
   const target=doc.createElement('button');target.id='save';target.textContent='保存设备';doc.body.append(target);doc.hit=target;
+  doc.documentElement.lang = lang;
   let serial=0;
-  const sandbox={window:win,document:doc,Element:Node,location:{href:'http://localhost:5173/devices?access_token=secret&tab=active'},URL,CSS:{escape:s=>s},crypto:{randomUUID:()=>`annotation-${++serial}`},innerWidth:800,innerHeight:600,confirm:()=>true,alert:()=>{},setTimeout:()=>1,clearTimeout:()=>{}};
-  vm.createContext(sandbox);vm.runInContext(`(${installGuestAnnotations.toString()})('session-A')`,sandbox);
+  const sandbox={navigator:{languages}, MutationObserver:class { constructor(notify){doc.notifyLanguage=notify;} observe(){} disconnect(){} },window:win,document:doc,Element:Node,location:{href:'http://localhost:5173/devices?access_token=secret&tab=active'},URL,CSS:{escape:s=>s},crypto:{randomUUID:()=>`annotation-${++serial}`},innerWidth:800,innerHeight:600,confirm:()=>true,alert:()=>{},setTimeout:()=>1,clearTimeout:()=>{}};
+  vm.createContext(sandbox);vm.runInContext(`(${installGuestAnnotations.toString()})('session-A','test',${JSON.stringify(annotationMessages)})`,sandbox);
   const api=()=>sandbox.__dshBrowserAnnotationV1;
   const root=()=>doc.documentElement.children.find(c=>c.attrs['data-dsh-browser-annotation'])?.shadowForTest;
   const click=(label)=>{const b=root().querySelectorAll('button').find(b=>b.textContent===label);assert.ok(b,`button ${label}`);b.emit('click');};
@@ -67,8 +68,8 @@ function guest(){
 }
 test('guest exposes exactly the two requested menu actions; quick queues one reference until acknowledged',()=>{
   const g=guest();const e=g.context();assert.equal(e.prevented,true);assert.equal(e.stopped,true);
-  assert.deepEqual(g.root().querySelectorAll('button').map(b=>b.textContent),['Quick annotation','Annotation']);
-  g.click('Quick annotation');const p=g.api().poll('session-A',null);
+  assert.deepEqual(g.root().querySelectorAll('button').map(b=>b.textContent),['快速标注','标注']);
+  g.click('快速标注');const p=g.api().poll('session-A',null);
   assert.equal(p.mode,'quick');assert.equal(p.items.length,1);assert.equal(p.items[0].selector,'#save');
   assert.ok(!p.items[0].page.includes('secret'));assert.match(p.items[0].page,/tab=active/);
   assert.equal(g.api().poll('session-A',null).id,p.id);
@@ -76,7 +77,7 @@ test('guest exposes exactly the two requested menu actions; quick queues one ref
   assert.match(g.root().textContent,/请检查后发送/);
 });
 test('batch keeps several notes local until Finish, and Escape does not discard them',()=>{
-  const g=guest();g.context();g.click('Annotation');
+  const g=guest();g.context();g.click('标注');
   assert.equal(g.root().querySelector('textarea'), null);
   assert.ok(g.root().querySelector('.picking'));
   const other=g.doc.createElement('div');other.id='toolbar';other.textContent='工具栏';g.doc.body.append(other);g.doc.hit=other;
@@ -105,33 +106,33 @@ test('batch keeps several notes local until Finish, and Escape does not discard 
 test('selection shields website controls; form values and script text are not collected',()=>{
   const g=guest();const input=g.doc.createElement('textarea');input.textContent='secret-field';input.value='typed-secret';
   const script=g.doc.createElement('script');script.textContent='secret-script';g.target.append(input,script);
-  g.context();g.click('Quick annotation');const text=g.api().poll('session-A',null).items[0].text;
+  g.context();g.click('快速标注');const text=g.api().poll('session-A',null).items[0].text;
   assert.equal(text,'保存设备');
-  const h=guest();h.context();h.click('Annotation');assert.ok(h.root().querySelector('.shield'));
+  const h=guest();h.context();h.click('标注');assert.ok(h.root().querySelector('.shield'));
   assert.equal(h.root().querySelectorAll('.shield').length,1);
 });
 test('Shift retains native context menu; cancelled batch and dispose send nothing',()=>{
   const g=guest();assert.equal(g.context({shiftKey:true}).prevented,undefined);
   assert.equal(g.root().querySelectorAll('button').length,0);
-  g.context();g.click('Annotation');g.click('退出');assert.equal(g.api().poll('session-A',null),null);
+  g.context();g.click('标注');g.click('退出');assert.equal(g.api().poll('session-A',null),null);
   g.api().dispose();assert.equal(g.root(),undefined);
   for(const list of g.win.events.values())assert.equal(list.length,0);
 });
 test('guest refuses to migrate pending annotation to a different conversation',()=>{
-  const g=guest();g.context();g.click('Quick annotation');
+  const g=guest();g.context();g.click('快速标注');
   assert.equal(g.api().poll('session-B',null).blocked,true);
   assert.equal(g.api().poll('session-A',null).sessionId,'session-A');
 });
 test('non-secure HTTP pages without randomUUID still generate an annotation id',()=>{
   const g=guest();g.sandbox.crypto={getRandomValues:array=>array.fill(42)};
-  g.context();g.click('Quick annotation');
+  g.context();g.click('快速标注');
   assert.match(g.api().poll('session-A',null).id,/^[0-9a-f]{32}$/);
 });
 
 test('Finish while picking delivers saved notes without requiring an extra click on the page', () => {
   const g = guest();
   g.context();
-  g.click('Annotation');
+  g.click('标注');
   g.root().querySelector('.shield').emit('click', {clientX: 30, clientY: 50});
   g.root().querySelector('textarea').value = '保留这条备注';
   g.click('保存，继续标注');
@@ -143,7 +144,7 @@ test('Finish while picking delivers saved notes without requiring an extra click
 test('finishing with an empty next element sends only previously saved notes', () => {
   const g = guest();
   g.context();
-  g.click('Annotation');
+  g.click('标注');
   const pick = () => g.root().querySelector('.shield').emit('click', {clientX: 30, clientY: 50});
   pick();
   g.root().querySelector('textarea').value = '已写好的备注';
@@ -152,4 +153,60 @@ test('finishing with an empty next element sends only previously saved notes', (
   g.click('完成并加入对话');
   const packet = g.api().poll('session-A', null);
   assert.deepEqual(Array.from(packet.items, item => item.note), ['已写好的备注']);
+});
+
+test('English page language takes priority and keeps the note and element text verbatim', () => {
+  const g = guest('en-GB', ['zh-CN']);
+  g.context();
+  g.click('Annotation');
+  g.root().querySelector('.shield').emit('click', {clientX: 30, clientY: 50});
+  const field = g.root().querySelector('textarea');
+  assert.equal(field.getAttribute('aria-label'), 'Annotation note');
+  field.value = '保留这段文字';
+  g.click('Finish and add to chat');
+  const payload = g.api().poll('session-A', null);
+  const draft = formatAnnotations(payload);
+  assert.equal(payload.language, 'en');
+  assert.match(draft, /Page context \(reference data\):/);
+  assert.match(draft, /"Text":"保存设备"/);
+  assert.match(draft, /My note: 保留这段文字/);
+  g.api().poll('session-A', payload.id);
+  assert.match(g.root().textContent, /Review it before sending/);
+});
+
+test('switching language in an open editor preserves focus, note and selected element', () => {
+  const g = guest();
+  g.context();
+  g.click('标注');
+  g.root().querySelector('.shield').emit('click', {clientX: 30, clientY: 50});
+  const field = g.root().querySelector('textarea');
+  field.value = 'Keep this';
+  field.emit('input');
+  g.doc.documentElement.lang = 'en-US';
+  g.doc.notifyLanguage();
+  assert.equal(g.doc.activeElement, field);
+  assert.equal(field.getAttribute('placeholder'), 'Describe what you want to change…');
+  g.click('Save and continue');
+  assert.equal(g.root().querySelector('.saved-note').textContent, 'Keep this');
+  g.doc.documentElement.lang = 'zh-Hant';
+  g.doc.notifyLanguage();
+  g.click('完成并加入对话');
+  const packet = g.api().poll('session-A', null);
+  assert.equal(packet.language, 'zh');
+  assert.equal(packet.items[0].selector, '#save');
+});
+
+test('undeclared pages use text hints, then browser preferences, then Chinese', () => {
+  for (const [lang, title, preferences, expected] of [
+    ['', '设备管理', ['en-US'], '快速标注'],
+    ['', 'Account settings', ['zh-Hant'], 'Quick annotation'],
+    ['', 'ACME', ['fr', 'en-US', 'zh-CN'], 'Quick annotation'],
+    ['de', 'Software', ['fr'], '快速标注']
+  ]) {
+    const g = guest(lang, preferences);
+    g.doc.title = title;
+    g.context();
+    assert.equal(g.root().querySelector('button').textContent, expected);
+  }
+  assert.deepEqual(Object.keys(annotationMessages.zh).sort(), Object.keys(annotationMessages.en).sort());
 });

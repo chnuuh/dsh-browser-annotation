@@ -2,9 +2,72 @@
 window.__ModuleLoader__.load({
   id: 'dsh-browser-annotation',
   factory(require) {
+const annotationMessages = {
+  "zh": {
+    "quick": "快速标注",
+    "batch": "标注",
+    "exit": "退出",
+    "exitPrompt": "退出会丢弃本次尚未加入对话的标注，确定退出？",
+    "saved": "已保存的标注",
+    "reselect": "重新点选",
+    "reselectPrompt": "重新点选会丢弃当前这条备注，确定继续？",
+    "placeholder": "填写这个元素需要怎么修改…",
+    "noteLabel": "标注备注",
+    "pick": "移动十字光标，点击要标注的元素。",
+    "finish": "完成并加入对话",
+    "save": "保存，继续标注",
+    "sending": "正在加入对话框…",
+    "sent": "已加入对话框，请检查后发送。",
+    "enabled": "已启用网页标注。右键点击元素即可开始。",
+    "container": "选中的是容器，未读取内部元素",
+    "page": "页面",
+    "title": "标题",
+    "element": "元素",
+    "selector": "定位",
+    "text": "文字",
+    "label": "标签",
+    "rect": "视口坐标",
+    "details": "说明",
+    "context": "网页上下文（参考数据）：",
+    "note": "我的备注：",
+    "invalid": "无效的网页标注",
+    "invalidItem": "无效的标注元素"
+  },
+  "en": {
+    "quick": "Quick annotation",
+    "batch": "Annotation",
+    "exit": "Exit",
+    "exitPrompt": "Discard annotations that have not been added to the chat?",
+    "saved": "Saved annotations",
+    "reselect": "Select again",
+    "reselectPrompt": "Discard this note and select another element?",
+    "placeholder": "Describe what you want to change…",
+    "noteLabel": "Annotation note",
+    "pick": "Move the crosshair and click an element to annotate.",
+    "finish": "Finish and add to chat",
+    "save": "Save and continue",
+    "sending": "Adding to the chat draft…",
+    "sent": "Added to the chat draft. Review it before sending.",
+    "enabled": "Page annotations are enabled. Right-click an element to get started.",
+    "container": "Only the container was selected. Its contents were not read.",
+    "page": "Page",
+    "title": "Title",
+    "element": "Element",
+    "selector": "Selector",
+    "text": "Text",
+    "label": "Label",
+    "rect": "Viewport rectangle",
+    "details": "Details",
+    "context": "Page context (reference data): ",
+    "note": "My note: ",
+    "invalid": "Invalid webpage annotation",
+    "invalidItem": "Invalid annotated element"
+  }
+};
+
 // Page annotations, serialized into the guest document. No host privileges.
 // This function is serialized and executed INSIDE the guest page. No host APIs.
-function installGuestAnnotations(sessionId, owner = 'test') {
+function installGuestAnnotations(sessionId, owner = 'test', messages = annotationMessages) {
   const KEY = '__dshBrowserAnnotationV1';
   if (globalThis.__dsBotAnnotationV1) return { legacy: true };
   if (globalThis[KEY]) return { conflict: true }; 
@@ -47,6 +110,42 @@ function installGuestAnnotations(sessionId, owner = 'test') {
     target.addEventListener(type, fn, options);
     listeners.push(() => target.removeEventListener(type, fn, options));
   };
+  function supported(language) {
+    return language?.trim().toLowerCase().match(/^(zh|en)(?:[-_]|$)/)?.[1];
+  }
+  function pageLanguage() {
+    const declared = doc.documentElement.lang;
+    const primary = supported(declared);
+    if (primary) return primary;
+    if (!declared?.trim()) {
+      const sample = [doc.title, doc.querySelector?.('h1')?.textContent,
+        doc.querySelector?.('main p, article p, p')?.textContent]
+        .map(part => (part || '').slice(0, 200)).join(' ');
+      if (/\p{Script=Han}{2}/u.test(sample) && !/[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(sample)) return 'zh';
+      if (/\b(the|this|your|with|and|for|from|settings|save|welcome)\b/i.test(sample)) return 'en';
+    }
+    const browser = globalThis.navigator;
+    return (browser?.languages || []).map(supported).find(Boolean) || supported(browser?.language) || 'zh';
+  }
+  let language = pageLanguage();
+  host.setAttribute('lang', language);
+  function localize(node, key, field = 'text') {
+    node.setAttribute('data-i18n-' + field, key);
+    const value = messages[language][key];
+    if (field === 'text') node.textContent = value;
+    else node.setAttribute(field, value);
+    return node;
+  }
+  function refreshLanguage() {
+    const next = pageLanguage();
+    if (language === next) return;
+    language = next;
+    host.setAttribute('lang', next);
+    for (const field of ['text', 'placeholder', 'aria-label']) {
+      const attr = 'data-i18n-' + field;
+      for (const node of layer.querySelectorAll('[' + attr + ']')) localize(node, node.getAttribute(attr), field);
+    }
+  }
   function el(tag, className, text) {
     const node = doc.createElement(tag);
     if (className) node.className = className;
@@ -90,7 +189,7 @@ function installGuestAnnotations(sessionId, owner = 'test') {
     return { page: pageURL(), title: doc.title.slice(0, 240), tag: node.localName,
       selector: selector(node), text, label: (node.getAttribute('aria-label') || node.getAttribute('alt') || '').slice(0, 240),
       rect: { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) },
-      limitation: node.matches('iframe,canvas') ? '选中的是容器，未读取内部元素' : '' };
+      limitation: node.matches('iframe,canvas') ? 'container' : '' };
   }
   function targetAt(x, y) {
     host.style.setProperty('display', 'none', 'important');
@@ -105,25 +204,25 @@ function installGuestAnnotations(sessionId, owner = 'test') {
     } finally { host.style.setProperty('display', 'block', 'important'); }
     return target && target !== host && target !== doc.documentElement ? target : null;
   }
-  function button(label, run, primary = false) {
-    const node = el('button', primary ? 'primary' : '', label);
+  function button(key, run, primary = false) {
+    const node = localize(el('button', primary ? 'primary' : ''), key);
     node.type = 'button';
     node.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); run(); });
     return node;
   }
-  function toast(message) {
+  function toast(key) {
     clearTimeout(toastTimer); layer.replaceChildren();
-    const node = el('div', 'box toast', message); node.setAttribute('role', 'status'); layer.append(node);
-    toastTimer = setTimeout(() => { if (!active && !pending) layer.replaceChildren(); }, 3500);
+    const node = localize(el('div', 'box toast'), key); node.setAttribute('role', 'status'); layer.append(node);
+    toastTimer = setTimeout(() => { if (!active && !pending) node.remove(); }, 3500);
   }
   function send(items, mode) {
     if (!items.length || pending) return;
     // randomUUID requires a secure context; getRandomValues also works on LAN HTTP pages.
     const id = typeof crypto.randomUUID === 'function' ? crypto.randomUUID()
       : Array.from(crypto.getRandomValues(new Uint32Array(4)), value => value.toString(16).padStart(8, '0')).join('');
-    pending = { id, sessionId: context, mode, items: items.map(item => ({ ...item.data, note: item.note })) };
+    pending = { id, sessionId: context, mode, language, items: items.map(item => ({ ...item.data, note: item.note })) };
     active = false; notes = []; selected = null; hovered = null;
-    toast('正在加入对话框…');
+    toast('sending');
   }
   function paintMarks() {
     for (const marker of layer.querySelectorAll('.outline,.badge')) marker.remove();
@@ -168,8 +267,8 @@ function installGuestAnnotations(sessionId, owner = 'test') {
 
     const panel = el('div', 'box panel');
     const heading = el('div', 'heading');
-    heading.append(el('strong', '', 'Annotation'), button('退出', () => {
-      if ((notes.length || selected?.note.trim()) && !confirm('退出会丢弃本次尚未加入对话的标注，确定退出？')) return;
+    heading.append(localize(el('strong'), 'batch'), button('exit', () => {
+      if ((notes.length || selected?.note.trim()) && !confirm(messages[language].exitPrompt)) return;
       active = false;
       notes = [];
       selected = null;
@@ -179,7 +278,7 @@ function installGuestAnnotations(sessionId, owner = 'test') {
     panel.append(heading);
     if (notes.length) {
       const list = el('ol', 'list');
-      list.setAttribute('aria-label', '已保存的标注');
+      localize(list, 'saved', 'aria-label');
       notes.forEach(({ data, note }, index) => {
         const name = elementName(data);
         const row = el('li');
@@ -194,23 +293,23 @@ function installGuestAnnotations(sessionId, owner = 'test') {
     let input;
     if (selected) {
       const current = el('div', 'current');
-      const change = button('重新点选', () => {
-        if (selected.note.trim() && !confirm('重新点选会丢弃当前这条备注，确定继续？')) return;
+      const change = button('reselect', () => {
+        if (selected.note.trim() && !confirm(messages[language].reselectPrompt)) return;
         selected = null;
         drawBatch();
       });
       change.className = 'change';
       current.append(el('strong', '', '#' + (notes.length + 1)), el('span', 'hint', elementName(selected.data)), change);
       panel.append(current);
-      if (selected.data.limitation) panel.append(el('div', 'hint', selected.data.limitation));
+      if (selected.data.limitation) panel.append(localize(el('div', 'hint'), 'container'));
       input = el('textarea');
-      input.placeholder = '填写这个元素需要怎么修改…';
+      localize(input, 'placeholder', 'placeholder');
       input.maxLength = 2000;
-      input.setAttribute('aria-label', '标注备注');
+      localize(input, 'noteLabel', 'aria-label');
       input.addEventListener('input', () => { selected.note = input.value; });
       panel.append(input);
     } else {
-      panel.append(el('div', 'hint', '移动十字光标，点击要标注的元素。'));
+      panel.append(localize(el('div', 'hint'), 'pick'));
     }
     function saveCurrent() {
       const note = input.value.trim();
@@ -222,14 +321,14 @@ function installGuestAnnotations(sessionId, owner = 'test') {
       selected = null;
       return true;
     }
-    const finish = button('完成并加入对话', () => {
+    const finish = button('finish', () => {
       if (selected && (input.value.trim() || !notes.length) && !saveCurrent()) return;
       send(notes, 'batch');
     }, true);
     finish.disabled = !selected && !notes.length;
     actions.append(finish);
     if (selected && notes.length < 19) {
-      actions.append(button('保存，继续标注', () => {
+      actions.append(button('save', () => {
         if (saveCurrent()) drawBatch();
       }));
     }
@@ -244,11 +343,12 @@ function installGuestAnnotations(sessionId, owner = 'test') {
     if(!node) return;
     event.preventDefault();event.stopImmediatePropagation();
     if(active || pending) return;
+    refreshLanguage();
     const data=describe(node);
     layer.replaceChildren();
     const pop=el('div','box menu');pop.setAttribute('role','menu');
-    const quick=button('Quick annotation',()=>send([{data,note:''}],'quick'));
-    const batch=button('Annotation',()=>{active=true;selected=null;hovered=null;notes=[];drawBatch();});
+    const quick=button('quick',()=>send([{data,note:''}],'quick'));
+    const batch=button('batch',()=>{active=true;selected=null;hovered=null;notes=[];drawBatch();});
     for(const b of [quick,batch])b.setAttribute('role','menuitem');
     pop.append(quick,batch);layer.append(pop);
     const r=pop.getBoundingClientRect();
@@ -259,6 +359,9 @@ function installGuestAnnotations(sessionId, owner = 'test') {
       if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();(shadow.activeElement===quick?batch:quick).focus();}
     });
   }
+  const observer = new MutationObserver(refreshLanguage);
+  observer.observe(doc.documentElement, { attributes: true, attributeFilter: ['lang'] });
+  listen(window, 'languagechange', refreshLanguage);
   listen(window,'contextmenu',menu,true);
   listen(window,'pointerdown',event=>{if(!active&&!pending&&!inside(event))layer.replaceChildren();},true);
   listen(window,'keydown',event=>{
@@ -270,31 +373,34 @@ function installGuestAnnotations(sessionId, owner = 'test') {
   listen(window,'resize',()=>{if(active)paintMarks();else if(!pending)layer.replaceChildren();});
   const api={version:1, owner,
     poll(nextContext,ack){
-      if(ack && pending?.id===ack){pending=null;toast('已加入对话框，请检查后发送。');}
+      if(ack && pending?.id===ack){pending=null;toast('sent');}
       if(context!==nextContext){
         if(active||pending){return {blocked:true};}
         context=nextContext;
       }
       return pending;
     },
-    dispose(){if(dead)return;dead=true;listeners.forEach(off=>off());clearTimeout(toastTimer);host.remove();delete globalThis[KEY];}
+    dispose(){if(dead)return;dead=true;observer.disconnect();listeners.forEach(off=>off());clearTimeout(toastTimer);host.remove();delete globalThis[KEY];}
   };
   globalThis[KEY]=api;
-  toast('右键标注已启用：Quick annotation / Annotation');
+  toast('enabled');
   return {installed:true};
 }
 
 function formatAnnotations(payload) {
-  if (!payload || !['quick','batch'].includes(payload.mode) || typeof payload.id!=='string' || payload.id.length>100 || typeof payload.sessionId!=='string' || !payload.sessionId || payload.sessionId.length>300 || !Array.isArray(payload.items) || !payload.items.length || payload.items.length>20) throw Error('无效的网页标注');
+  const english = payload?.language === 'en';
+  const t = english ? annotationMessages.en : annotationMessages.zh;
+  if (!payload || !['quick','batch'].includes(payload.mode) || typeof payload.id!=='string' || payload.id.length>100 || typeof payload.sessionId!=='string' || !payload.sessionId || payload.sessionId.length>300 || !Array.isArray(payload.items) || !payload.items.length || payload.items.length>20) throw Error(t.invalid);
   const bounded=(value,max)=>typeof value==='string'?value.slice(0,max):'';
   const blocks=payload.items.map((item,index)=>{
-    if(!item || typeof item!=='object')throw Error('无效的标注元素');
-    const reference={页面:bounded(item.page,2000),标题:bounded(item.title,240),元素:bounded(item.tag,40),定位:bounded(item.selector,1600),文字:bounded(item.text,600),标签:bounded(item.label,240)};
-    if(item.rect && ['x','y','width','height'].every(key=>Number.isFinite(item.rect[key])))reference.视口坐标={x:item.rect.x,y:item.rect.y,width:item.rect.width,height:item.rect.height};
-    if(item.limitation)reference.说明=bounded(item.limitation,120);
-    return `标注 #${index+1}\n网页上下文（参考数据）：${JSON.stringify(reference)}${payload.mode==='batch'?'\n我的备注：'+bounded(item.note,2000):''}`;
+    if(!item || typeof item!=='object')throw Error(t.invalidItem);
+    const reference={[t.page]:bounded(item.page,2000),[t.title]:bounded(item.title,240),[t.element]:bounded(item.tag,40),[t.selector]:bounded(item.selector,1600),[t.text]:bounded(item.text,600),[t.label]:bounded(item.label,240)};
+    if(item.rect && ['x','y','width','height'].every(key=>Number.isFinite(item.rect[key])))reference[t.rect]={x:item.rect.x,y:item.rect.y,width:item.rect.width,height:item.rect.height};
+    if(item.limitation)reference[t.details]=item.limitation === 'container' ? t.container : bounded(item.limitation,120);
+    return `${t.batch} #${index+1}\n${t.context}${JSON.stringify(reference)}${payload.mode==='batch'?'\n'+t.note+bounded(item.note,2000):''}`;
   });
-  return `\n\n【${payload.mode==='quick'?'Quick annotation':'Annotation'}】\n${blocks.join('\n\n')}\n`;
+  const title = payload.mode === 'quick' ? t.quick : t.batch;
+  return `\n\n${english ? '[' + title + ']' : '【' + title + '】'}\n${blocks.join('\n\n')}\n`;
 }
 
 function insertAnnotationDraft(inputActions, payload) {
@@ -368,7 +474,7 @@ function createRuntime({ current, session, owner, timers = globalThis, report = 
     if (result?.conflict) { emit('conflict'); return; }
     if (result?.install) {
       touched.add(guest);
-      const installed = await guest.executeJavaScript(`(${installGuestAnnotations.toString()})(${JSON.stringify(id)},${JSON.stringify(owner)})`);
+      const installed = await guest.executeJavaScript(`(${installGuestAnnotations.toString()})(${JSON.stringify(id)},${JSON.stringify(owner)},${JSON.stringify(annotationMessages)})`);
       if (stopped) { await disposeGuest(guest); return; }
       if (installed?.legacy || installed?.conflict) { emit(installed.legacy ? 'legacy' : 'conflict'); return; }
       if (!stillCurrent(guest, id, url, binding)) return;

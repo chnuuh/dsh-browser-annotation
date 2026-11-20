@@ -1,4 +1,4 @@
-import { installGuestAnnotations, insertAnnotationDraft } from './annotation.js';
+import { annotationMessages, installGuestAnnotations, insertAnnotationDraft } from './annotation.js';
 
 // Only the two inspected Electron webview surfaces. Native BrowserViews and
 // iframe pages require separate adapters; do not guess at their private state.
@@ -61,7 +61,7 @@ export function createRuntime({ current, session, owner, timers = globalThis, re
     if (result?.conflict) { emit('conflict'); return; }
     if (result?.install) {
       touched.add(guest);
-      const installed = await guest.executeJavaScript(`(${installGuestAnnotations.toString()})(${JSON.stringify(id)},${JSON.stringify(owner)})`);
+      const installed = await guest.executeJavaScript(`(${installGuestAnnotations.toString()})(${JSON.stringify(id)},${JSON.stringify(owner)},${JSON.stringify(annotationMessages)})`);
       if (stopped) { await disposeGuest(guest); return; }
       if (installed?.legacy || installed?.conflict) { emit(installed.legacy ? 'legacy' : 'conflict'); return; }
       if (!stillCurrent(guest, id, url, binding)) return;
